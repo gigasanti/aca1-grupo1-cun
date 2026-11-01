@@ -33,4 +33,4 @@ App publicada: https://aca1-grupo1-cun-jqvtqkdarfsifdxeqfwhjv.streamlit.app
 ## Videos de sustentación
 
 - Computación en la Nube: _[enlace]_
-- Aprendizaje Automático: _[enlace]_
+- Aprendizaje Automático: https://youtu.be/o83qOFIDKzw
