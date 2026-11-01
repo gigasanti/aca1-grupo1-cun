@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(page_title="Segmentación de clientes RFM", page_icon="🛒", layout="centered")
+st.set_page_config(page_title="Segmentación de clientes RFM", page_icon="🛒", layout="wide")
 
 COLORES = {
     "Campeones": "#1B7A3E",
@@ -54,7 +54,7 @@ def barras(df, valor, titulo, formato):
         alt.Chart(df)
         .mark_bar(cornerRadiusEnd=4)
         .encode(
-            y=alt.Y("Segmento:N", sort=list(COLORES), title=None, axis=alt.Axis(labelLimit=200, labelFontSize=13)),
+            y=alt.Y("Segmento:N", sort=list(COLORES), title=None, axis=alt.Axis(labelLimit=200, labelFontSize=13, labelOverlap=False)),
             x=alt.X(f"{valor}:Q", title=titulo),
             color=alt.Color("Segmento:N", scale=alt.Scale(domain=list(COLORES), range=list(COLORES.values())), legend=None),
             tooltip=["Segmento", alt.Tooltip(f"{valor}:Q", format=formato)],
@@ -70,71 +70,69 @@ except FileNotFoundError:
     st.stop()
 TIPO = clientes_tipo(modelo)
 
-st.title("🛒 Segmentación de clientes")
-st.write(
-    "Un modelo de Machine Learning (K-Means) agrupó a los 4.333 clientes de una tienda en línea "
-    "(dataset **UCI Online Retail**) según **cuándo**, **cuántas veces** y **cuánto** compran. "
-    "Describe un cliente y la app dice a qué grupo se parece más."
+st.markdown("<style>.block-container{padding-top:2.2rem;padding-bottom:1rem;max-width:1300px}</style>", unsafe_allow_html=True)
+st.markdown("## 🛒 Segmentación de clientes")
+st.caption(
+    "Un modelo de Machine Learning (K-Means) agrupó a los 4.333 clientes de una tienda en línea (dataset UCI Online Retail) "
+    "según **cuándo**, **cuántas veces** y **cuánto** compran (RFM). Describe un cliente y la app dice a qué grupo se parece más."
 )
 
 tab1, tab2 = st.tabs(["🔎 Clasificar un cliente", "📊 Resumen de segmentos"])
 
 with tab1:
-    st.markdown("**1. Empieza con un cliente de ejemplo** (o mueve los controles directamente):")
+    entrada, salida = st.columns([1, 1.15], gap="large")
+
+    with entrada:
+        st.markdown("**1. Empieza con un cliente de ejemplo** (o mueve los controles):")
 
 
-    def cargar_ejemplo(segmento):
-        st.session_state.update(TIPO[segmento])
+        def cargar_ejemplo(segmento):
+            st.session_state.update(TIPO[segmento])
 
 
-    columnas = st.columns(4)
-    for col, segmento in zip(columnas, COLORES):
-        col.button(segmento, on_click=cargar_ejemplo, args=(segmento,), width="stretch")
+        fila1, fila2 = st.columns(2), st.columns(2)
+        for col, segmento in zip(fila1 + fila2, COLORES):
+            col.button(segmento, on_click=cargar_ejemplo, args=(segmento,), width="stretch")
 
-    st.markdown("**2. Describe al cliente:**")
-    st.session_state.setdefault("dias", 30)
-    st.session_state.setdefault("compras", 3)
-    st.session_state.setdefault("ticket", 300)
-    dias = st.slider("¿Hace cuántos días fue su última compra?", 0, 365, key="dias")
-    compras = st.slider("¿Cuántas compras ha hecho en el año?", 1, 60, key="compras")
-    ticket = st.slider("¿Cuánto gasta en promedio en cada compra? (£)", 10, 2000, step=10, key="ticket")
-    gasto = compras * ticket
-    st.caption(f"Gasto total en el año: **£{gasto:,.0f}** ({compras} compras × £{ticket:,}).")
+        st.markdown("**2. Describe al cliente:**")
+        st.session_state.setdefault("dias", 30)
+        st.session_state.setdefault("compras", 3)
+        st.session_state.setdefault("ticket", 300)
+        dias = st.slider("¿Hace cuántos días fue su última compra?", 0, 365, key="dias")
+        compras = st.slider("¿Cuántas compras ha hecho en el año?", 1, 60, key="compras")
+        ticket = st.slider("¿Cuánto gasta en promedio en cada compra? (£)", 10, 2000, step=10, key="ticket")
+        gasto = compras * ticket
+        st.caption(f"Gasto total en el año: **£{gasto:,.0f}** ({compras} compras × £{ticket:,}).")
 
     segmento, parecido = clasificar(modelo, dias, compras, gasto)
-    st.markdown("**3. Resultado:**")
-    st.success(f"### {segmento}\n{RECOMENDACIONES[segmento]}")
-
     tipo = TIPO[segmento]
-    st.markdown(f"**¿Por qué?** Comparado con el cliente típico del grupo *{segmento}*:")
-    st.table(pd.DataFrame(
-        {
-            "Este cliente": [f"hace {dias} días", f"{compras}", f"£{gasto:,.0f}"],
-            f"Típico de {segmento}": [f"hace {tipo['dias']} días", f"{tipo['compras']}", f"£{tipo['compras'] * tipo['ticket']:,.0f}"],
-        },
-        index=["Última compra", "Compras en el año", "Gasto total"],
-    ))
-    st.altair_chart(barras(parecido, "Parecido", "Parecido con cada grupo (%)", ".0f"), width="stretch")
-    st.caption(
-        "El modelo mira las tres cosas a la vez y elige el grupo cuyo cliente típico está más cerca. "
-        "Por eso un cambio en un solo control puede hacer saltar al cliente de grupo."
-    )
+    with salida:
+        st.markdown("**3. Resultado:**")
+        st.success(f"### {segmento}\n{RECOMENDACIONES[segmento]}")
+        st.markdown(f"**¿Por qué?** El modelo compara las tres cifras con el cliente típico de cada grupo y elige el más cercano:")
+        st.table(pd.DataFrame(
+            {
+                "Este cliente": [f"hace {dias} días", f"{compras}", f"£{gasto:,.0f}"],
+                f"Típico de {segmento}": [f"hace {tipo['dias']} días", f"{tipo['compras']}", f"£{tipo['compras'] * tipo['ticket']:,.0f}"],
+            },
+            index=["Última compra", "Compras en el año", "Gasto total"],
+        ))
+        st.altair_chart(barras(parecido, "Parecido", "Parecido con cada grupo (%)", ".0f").properties(height=165), width="stretch")
 
 with tab2:
     resumen = pd.DataFrame(modelo["resumen"])
     resumen["% de clientes"] = resumen["Clientes"] / resumen["Clientes"].sum() * 100
     ingreso = resumen["Clientes"] * resumen["Gasto_medio"]
     resumen["% del ingreso"] = ingreso / ingreso.sum() * 100
-
-    st.markdown("**¿Cuánto pesa cada grupo?**")
-    izq, der = st.columns(2)
-    izq.altair_chart(barras(resumen, "% de clientes", "% de clientes", ".0f"), width="stretch")
-    der.altair_chart(barras(resumen, "% del ingreso", "% del ingreso", ".0f"), width="stretch")
     campeones = resumen.set_index("Segmento").loc["Campeones"]
     st.info(
         f"Los **Campeones** son el {campeones['% de clientes']:.0f} % de los clientes "
         f"y generan el {campeones['% del ingreso']:.0f} % del ingreso."
     )
+
+    izq, der = st.columns(2, gap="large")
+    izq.altair_chart(barras(resumen, "% de clientes", "% de clientes", ".0f"), width="stretch")
+    der.altair_chart(barras(resumen, "% del ingreso", "% del ingreso", ".0f"), width="stretch")
 
     st.markdown("**Cliente promedio de cada grupo**")
     tabla = resumen.set_index("Segmento")[["Clientes", "Recencia_media", "Frecuencia_media", "Gasto_medio"]]
@@ -142,11 +140,4 @@ with tab2:
     st.dataframe(
         tabla.style.format({"Días desde última compra": "{:.0f}", "Compras en el año": "{:.1f}", "Gasto total (£)": "£{:,.0f}"}),
         width="stretch",
-    )
-
-with st.expander("¿Qué es RFM?"):
-    st.write(
-        "Es una forma clásica de describir clientes con tres números: **R**ecencia (días desde su última compra), "
-        "**F**recuencia (cuántas compras hizo) y valor **M**onetario (cuánto gastó en total). "
-        "K-Means busca grupos de clientes con valores parecidos sin que nadie le diga de antemano cuáles son."
     )
