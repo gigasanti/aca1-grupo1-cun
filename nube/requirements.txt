@@ -1,0 +1,11 @@
+qdrant-client
+sentence-transformers
+transformers
+pymupdf
+langchain-text-splitters
+python-dotenv
+openpyxl
+pandas
+numpy
+matplotlib
+requests
