@@ -52,10 +52,19 @@
    ]
   ]
  },
- "semanal": {
-  "semanas": 53,
-  "lstm_mediana_pct": 9.7,
-  "semana_pasada_mediana_pct": 13.1
+ "horizontes": {
+  "Semana": {
+   "n": 10,
+   "lstm": 17.7,
+   "anterior": 21.3,
+   "sesgo_lstm": -10.1
+  },
+  "Mes": {
+   "n": 7,
+   "lstm": 18.8,
+   "anterior": 18.6,
+   "sesgo_lstm": -16.0
+  }
  },
  "curvas": {
   "loss": [

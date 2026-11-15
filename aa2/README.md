@@ -9,7 +9,8 @@ Red neuronal recurrente **LSTM** que pronostica la venta diaria total de la tien
 | MAE diario | £14.168 | £16.512 (media móvil) |
 | MAPE diario | 24,6 % | 32,1 % (semana pasada) |
 | F1 dirección del día siguiente (sube/baja) | 0,78 | 0,73 |
-| Error mediano del total semanal | 9,7 % | 13,1 % |
+| Error típico al planear una semana | 17,7 % | 21,3 % (repetir la semana anterior) |
+| Error típico al planear un mes | 18,8 % | 18,6 % (repetir el mes anterior) |
 
 ## Contenido
 
