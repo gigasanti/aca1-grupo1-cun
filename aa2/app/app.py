@@ -96,11 +96,12 @@ primer_dia = diaria["fecha"].iloc[cfg["ventana"]]
 
 
 def semana_valida(s):
-    return primer_inicio <= s and s + pd.Timedelta(days=6) <= ultimo_dato + pd.Timedelta(days=1)
+    # solo semanas del periodo de evaluación: ventas que la red nunca vio al entrenar
+    return inicio_prueba <= s and s + pd.Timedelta(days=6) <= ultimo_dato + pd.Timedelta(days=1)
 
 
 def dia_valido(f):
-    return f in fechas_venta and f >= primer_dia
+    return f in fechas_venta and f >= inicio_prueba
 
 
 # ---------- encabezado ----------
@@ -137,7 +138,7 @@ with tab1:
             ancla = inicio
 
         st.markdown("#### " + ("¿Qué semana?" if horizonte == "Semana" else "¿Qué día?"))
-        meses_disp = pd.period_range(primer_inicio, ultimo_dato, freq="M")
+        meses_disp = pd.period_range(inicio_prueba, ultimo_dato, freq="M")
         etiquetas = [f"{MESES[p.month - 1].capitalize()} {p.year}" for p in meses_disp]
         if st.session_state.get("mes") not in etiquetas:
             st.session_state["mes"] = etiquetas[list(meses_disp).index(pd.Period(ancla, "M"))]
@@ -162,7 +163,7 @@ with tab1:
                 c.button(etiqueta, key=f"d{dia:%Y%m%d}", disabled=not (ok or elegido), type="primary" if elegido else "secondary",
                          width="stretch", on_click=accion)
             s += pd.Timedelta(weeks=1)
-        st.caption("Toca un día para elegir su semana." if horizonte == "Semana" else "Toca el día a pronosticar. Los días grises no tuvieron venta (festivos) o les falta historia.")
+        st.caption("Solo se puede elegir de octubre a diciembre de 2011: la red se entrenó con los meses anteriores y nunca vio estas ventas. Así se compara su pronóstico con lo que de verdad se vendió.")
 
     hist = diaria[diaria["fecha"] < inicio]
     periodo_df = diaria[(diaria["fecha"] >= inicio) & (diaria["fecha"] <= fin)].copy()
@@ -240,8 +241,6 @@ with tab1:
             st.caption(f"Referencia ({hz['Semana']['n']} semanas de prueba): error típico de la red al pronosticar una semana **{hz['Semana']['lstm']:.0f}%** · repitiendo la semana anterior **{hz['Semana']['anterior']:.0f}%**.")
         else:
             st.caption(f"Referencia (60 días de prueba): la red se equivoca en promedio **{libras_mil(m['LSTM']['MAE (£)'])}** por día ({m['LSTM']['MAPE (%)']:.0f}% de la venta del día) · repitiendo el mismo día de la semana pasada **{libras_mil(m['Ingenuo estacional (semana pasada)']['MAE (£)'])}**.")
-        if inicio < inicio_prueba:
-            st.info("La red vio este periodo al entrenar, así que la comparación es optimista. El periodo de prueba empieza el 2 de octubre de 2011.")
 
         if horizonte == "Semana":
           with st.expander("Ver detalle por día"):
