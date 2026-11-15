@@ -254,34 +254,61 @@ with tab1:
 
 # ---------- pestaña 2: evaluación ----------
 with tab2:
-    st.subheader("Prueba: últimos 60 días con venta (oct – dic 2011)")
-    tm = pd.DataFrame(m).T[["MAE (£)", "RMSE (£)", "MAPE (%)"]].sort_values("MAE (£)")
-    a, b = st.columns([2, 3])
+    st.markdown("#### Examen de la red: 60 días que nunca vio (2 oct – 9 dic 2011)")
+    a, b = st.columns(2, gap="large")
+
     with a:
-        st.markdown("**Error por modelo** (menor es mejor)")
-        st.dataframe(tm.style.format("{:,.1f}").highlight_min(color="#d6e9d8"), width="stretch")
-        st.markdown("**Dirección del día siguiente: ¿sube o baja?**")
+        st.markdown("**1. ¿Cuánto se equivoca cada método por día?**")
+        nombres = {"LSTM": "Red LSTM", "GRU": "Red GRU (comparación)", "Media móvil 6 días": "Promedio últimos 6 días",
+                   "Ingenuo estacional (semana pasada)": "Repetir semana pasada", "Ingenuo (día anterior)": "Repetir el día anterior"}
+        err = pd.DataFrame([{"Método": nombres[k], "mil": v["MAE (£)"] / 1000, "pct": v["MAPE (%)"]} for k, v in m.items()]).sort_values("mil")
+        err["texto"] = err.apply(lambda r: f"£{r['mil']:.1f} mil · {r['pct']:.0f}%".replace(".", ","), axis=1)
+        err["color"] = np.where(err["Método"] == "Red LSTM", AZUL, GRIS)
+        barras = alt.Chart(err).encode(y=alt.Y("Método:N", sort=list(err["Método"]), title=None, axis=alt.Axis(labelFontSize=13, labelLimit=220)),
+                                       x=alt.X("mil:Q", title=None, axis=None, scale=alt.Scale(domain=[0, err["mil"].max() * 1.45])))
+        st.altair_chart((barras.mark_bar(cornerRadiusEnd=5, height=24).encode(color=alt.Color("color:N", scale=None))
+                         + barras.mark_text(align="left", dx=6, fontSize=13).encode(text="texto:N")).properties(height=230), width="stretch")
+        st.caption("Libras de diferencia promedio entre el pronóstico y la venta real de cada día (MAE), y ese error como % de la venta del día (MAPE). Menos es mejor.")
+
+        st.markdown("**2. ¿Acierta si mañana se vende más o menos que hoy?**")
         cm = np.array(cfg["direccion"]["matriz"])
-        cm_df = pd.DataFrame([(r, p, int(cm[i, j])) for i, r in enumerate(["Baja", "Sube"]) for j, p in enumerate(["Baja", "Sube"])],
-                             columns=["Real", "Pronóstico", "Días"])
-        base_cm = alt.Chart(cm_df).encode(x=alt.X("Pronóstico:N"), y=alt.Y("Real:N"))
-        st.altair_chart((base_cm.mark_rect().encode(color=alt.Color("Días:Q", scale=alt.Scale(scheme="blues"), legend=None))
-                         + base_cm.mark_text(fontSize=18).encode(text="Días:Q")).properties(height=180, width=220))
-        st.caption(f"F1 macro {cfg['direccion']['f1_macro']:.2f} · accuracy {cfg['direccion']['accuracy']:.0%}")
+        aciertos, total = int(cm[0, 0] + cm[1, 1]), int(cm.sum())
+        d1, d2, d3 = st.columns(3)
+        d1.metric("Acertó", f"{aciertos} de {total} días")
+        d2.metric("Días que subieron", f"{cm[1, 1]} de {cm[1].sum()}", help="De los días en que la venta subió frente al día anterior, cuántos anticipó la red.")
+        d3.metric("Días que bajaron", f"{cm[0, 0]} de {cm[0].sum()}", help="De los días en que la venta bajó frente al día anterior, cuántos anticipó la red.")
+        st.caption(f"Sirve para decidir si mañana se refuerza o se reduce el turno. Nota técnica: F1 = {cfg['direccion']['f1_macro']:.2f} (promedia el acierto en días que suben y en días que bajan).".replace("0.", "0,"))
+
     with b:
+        st.markdown("**3. Pronóstico frente a la venta real, día por día**")
         largo = prueba.melt(id_vars="fecha", value_vars=["real", "LSTM"], var_name="serie", value_name="ventas")
         largo["serie"] = largo["serie"].replace({"real": "Venta real", "LSTM": "Red LSTM"})
-        st.altair_chart(alt.Chart(largo).mark_line(strokeWidth=3).encode(
-            x=alt.X("fecha:T", title=None), y=alt.Y("ventas:Q", title="Ventas (£)"),
-            color=alt.Color("serie:N", scale=alt.Scale(domain=["Venta real", "Red LSTM"], range=[GRIS, AZUL]), legend=alt.Legend(orient="top", title=None)),
-            tooltip=[alt.Tooltip("fecha:T", format="%d %b"), "serie:N", alt.Tooltip("ventas:Q", format=",.0f")],
-        ).properties(height=300), width="stretch")
-        curvas = pd.DataFrame({"época": range(1, len(cfg["curvas"]["loss"]) + 1), "Entrenamiento": cfg["curvas"]["loss"], "Validación": cfg["curvas"]["val_loss"]}).melt("época", var_name="serie", value_name="pérdida")
-        st.markdown("**Curvas de aprendizaje (pérdida Huber)**")
-        st.altair_chart(alt.Chart(curvas).mark_line().encode(
-            x="época:Q", y=alt.Y("pérdida:Q", title="Pérdida"),
-            color=alt.Color("serie:N", scale=alt.Scale(range=[AZUL, "#e3a33c"]), legend=alt.Legend(orient="top", title=None)),
-        ).properties(height=200), width="stretch")
+        largo["mil"] = largo["ventas"] / 1000
+        escala2 = alt.Scale(domain=["Venta real", "Red LSTM"], range=[GRIS, AZUL])
+        meses_ticks = [pd.Timestamp("2011-10-04"), pd.Timestamp("2011-11-01"), pd.Timestamp("2011-12-01")]
+        lineas2 = alt.Chart(largo).mark_line(strokeWidth=3).encode(
+            x=alt.X("fecha:T", title=None, axis=alt.Axis(values=[t.isoformat() for t in meses_ticks], labelExpr="['ene','feb','mar','abr','may','jun','jul','ago','sep','Octubre','Noviembre','Diciembre'][month(datum.value)]", labelFontSize=13, grid=False)),
+            y=alt.Y("mil:Q", title=None, scale=alt.Scale(domain=[0, 130], clamp=True), axis=alt.Axis(labelExpr="'£' + datum.value + ' mil'", tickCount=4)),
+            color=alt.Color("serie:N", scale=escala2, legend=None),
+            tooltip=[alt.Tooltip("fecha:T", title="Fecha", format="%d/%m/%Y"), alt.Tooltip("serie:N", title=""), alt.Tooltip("ventas:Q", title="£", format=",.0f")])
+        fin_g = largo.sort_values("fecha").groupby("serie").tail(1)
+        fin_g["mil"] = fin_g["mil"].clip(upper=125)
+        fin_g["dy"] = np.where(fin_g["serie"] == "Venta real", -10, 10)
+        etq2 = alt.layer(*[alt.Chart(fin_g[fin_g["dy"] == d]).mark_text(align="left", dx=8, dy=d, fontSize=14, fontWeight="bold").encode(
+            x="fecha:T", y="mil:Q", text="serie:N", color=alt.Color("serie:N", scale=escala2, legend=None)) for d in (-10, 10)])
+        st.altair_chart((lineas2 + etq2).properties(height=260, padding={"right": 95}), width="stretch")
+        st.caption("La red sigue el ritmo semanal. Los picos que no alcanza son pedidos excepcionales (14 nov y 9 dic) que ninguna venta pasada anunciaba.")
+
+        st.markdown("**4. ¿La red aprendió o memorizó?**")
+        curvas = pd.DataFrame({"Vuelta de entrenamiento": range(1, len(cfg["curvas"]["loss"]) + 1),
+                               "Error con datos de entrenamiento": cfg["curvas"]["loss"],
+                               "Error con datos que no usó para aprender": cfg["curvas"]["val_loss"]}).melt("Vuelta de entrenamiento", var_name="serie", value_name="error")
+        st.altair_chart(alt.Chart(curvas).mark_line(strokeWidth=3).encode(
+            x=alt.X("Vuelta de entrenamiento:Q", axis=alt.Axis(tickCount=5, grid=False)),
+            y=alt.Y("error:Q", title=None, scale=alt.Scale(domain=[curvas["error"].min() * 0.9, curvas["error"].max() * 1.05]), axis=alt.Axis(labels=False, ticks=False, grid=False)),
+            color=alt.Color("serie:N", scale=alt.Scale(range=[GRIS, AZUL]), legend=alt.Legend(orient="top", title=None, labelFontSize=12, labelLimit=320)),
+        ).properties(height=230), width="stretch")
+        st.caption("Las dos curvas bajan y se estabilizan juntas: la red aprendió un patrón que también funciona con datos nuevos. Si la azul subiera mientras la gris baja, estaría memorizando.")
 
 # ---------- pestaña 3: SQL ----------
 SQL_CALIDAD = """-- 1. ¿Qué hay que limpiar? Cuenta los registros problemáticos
