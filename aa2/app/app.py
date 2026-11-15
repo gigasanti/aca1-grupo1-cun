@@ -16,6 +16,7 @@ import streamlit as st
 
 BASE = Path(__file__).parent
 AZUL, GRIS, GRIS_OSC = "#3b7dd8", "#9aa3ad", "#6b737c"
+TEXTO = "#8c96a3"   # gris medio: legible en modo claro y oscuro
 DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie"]          # la tienda no vende los sábados
 MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
 HORIZONTES = ["Día", "Semana"]
@@ -267,7 +268,7 @@ with tab2:
         barras = alt.Chart(err).encode(y=alt.Y("Método:N", sort=list(err["Método"]), title=None, axis=alt.Axis(labelFontSize=13, labelLimit=220)),
                                        x=alt.X("mil:Q", title=None, axis=None, scale=alt.Scale(domain=[0, err["mil"].max() * 1.45])))
         st.altair_chart((barras.mark_bar(cornerRadiusEnd=5, height=24).encode(color=alt.Color("color:N", scale=None))
-                         + barras.mark_text(align="left", dx=6, fontSize=13).encode(text="texto:N")).properties(height=230), width="stretch")
+                         + barras.mark_text(align="left", dx=6, fontSize=13, color=TEXTO).encode(text="texto:N")).properties(height=230), width="stretch")
         st.caption("Libras de diferencia promedio entre el pronóstico y la venta real de cada día (MAE), y ese error como % de la venta del día (MAPE). Menos es mejor.")
 
         st.markdown("**2. ¿Acierta si mañana se vende más o menos que hoy?**")
