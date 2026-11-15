@@ -46,13 +46,14 @@ def domingo_de(f):
 
 
 @st.cache_resource
-def cargar_modelo():
+def cargar_modelo(huella=None):
     import tensorflow as tf
     return tf.keras.models.load_model(BASE / "modelo_lstm.keras")
 
 
 @st.cache_data
-def cargar_datos():
+def cargar_datos(huella):
+    """`huella` cambia cuando cambian los archivos, así Streamlit no reutiliza datos viejos en memoria."""
     cfg = json.loads((BASE / "config.json").read_text(encoding="utf-8"))
     diaria = pd.read_csv(BASE / "ventas_diarias.csv", parse_dates=["fecha"])
     prueba = pd.read_csv(BASE / "prueba_pronosticos.csv", parse_dates=["fecha"])
@@ -78,7 +79,8 @@ def pronosticar(modelo, historia, fechas_hist, fechas_obj, cfg):
     return np.array(salida)
 
 
-cfg, diaria, prueba = cargar_datos()
+HUELLA = tuple((BASE / f).stat().st_mtime_ns for f in ("config.json", "ventas_diarias.csv", "prueba_pronosticos.csv"))
+cfg, diaria, prueba = cargar_datos(HUELLA)
 m = cfg["metricas"]
 hz = cfg["horizontes"]
 inicio_prueba = diaria["fecha"].iloc[-cfg["dias_prueba"]]
@@ -157,7 +159,7 @@ with tab1:
     hist = diaria[diaria["fecha"] < inicio]
     periodo_df = diaria[(diaria["fecha"] >= inicio) & (diaria["fecha"] <= fin)].copy()
     with st.spinner("La red está calculando…"):
-        periodo_df["lstm"] = pronosticar(cargar_modelo(), hist["ventas"].to_numpy(), hist["fecha"], list(periodo_df["fecha"]), cfg)
+        periodo_df["lstm"] = pronosticar(cargar_modelo((BASE / "modelo_lstm.keras").stat().st_mtime_ns), hist["ventas"].to_numpy(), hist["fecha"], list(periodo_df["fecha"]), cfg)
     total_p, total_r = periodo_df["lstm"].sum(), periodo_df["ventas"].sum()
     dif = 100 * (total_p - total_r) / total_r
 
