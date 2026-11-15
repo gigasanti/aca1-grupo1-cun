@@ -14,7 +14,7 @@ import pandas as pd
 import streamlit as st
 
 BASE = Path(__file__).parent
-AZUL, NARANJA, GRIS = "#1f4e79", "#e3a33c", "#9AA39E"
+AZUL, NARANJA, GRIS = "#3b7dd8", "#e3a33c", "#9AA39E"
 DIAS = {0: "Lun", 1: "Mar", 2: "Mié", 3: "Jue", 4: "Vie", 5: "Sáb", 6: "Dom"}
 
 st.set_page_config(page_title="Pronóstico de ventas con LSTM", page_icon="📈", layout="wide")
@@ -111,7 +111,7 @@ with tab1:
             real_fut.assign(serie="Real (lo que pasó)")[["fecha", "ventas", "serie"]],
             pron.rename(columns={"pronostico": "ventas"}).assign(serie="Pronóstico LSTM"),
         ])
-        colores = alt.Scale(domain=["Histórico", "Real (lo que pasó)", "Pronóstico LSTM"], range=[GRIS, "black", AZUL])
+        colores = alt.Scale(domain=["Histórico", "Real (lo que pasó)", "Pronóstico LSTM"], range=[GRIS, NARANJA, AZUL])
         graf = alt.Chart(vista).mark_line(point=True).encode(
             x=alt.X("fecha:T", title=None),
             y=alt.Y("ventas:Q", title="Ventas (£)"),
@@ -156,7 +156,7 @@ with tab2:
         largo["serie"] = largo["serie"].replace({"real": "Real", "Ingenuo estacional (semana pasada)": "Semana pasada"})
         st.altair_chart(alt.Chart(largo).mark_line().encode(
             x=alt.X("fecha:T", title=None), y=alt.Y("ventas:Q", title="Ventas (£)"),
-            color=alt.Color("serie:N", scale=alt.Scale(domain=["Real", "LSTM", "Semana pasada"], range=["black", AZUL, NARANJA]), legend=alt.Legend(orient="top", title=None)),
+            color=alt.Color("serie:N", scale=alt.Scale(domain=["Real", "LSTM", "Semana pasada"], range=[NARANJA, AZUL, GRIS]), legend=alt.Legend(orient="top", title=None)),
             tooltip=[alt.Tooltip("fecha:T", format="%d %b"), "serie:N", alt.Tooltip("ventas:Q", format=",.0f")],
         ).properties(height=300), width="stretch")
         curvas = pd.DataFrame({"época": range(1, len(cfg["curvas"]["loss"]) + 1), "Entrenamiento": cfg["curvas"]["loss"], "Validación": cfg["curvas"]["val_loss"]}).melt("época", var_name="serie", value_name="pérdida")
