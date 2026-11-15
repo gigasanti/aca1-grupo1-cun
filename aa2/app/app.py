@@ -3,6 +3,7 @@ Pronóstico de ventas (UCI Online Retail) con una red LSTM entrenada en el noteb
 """
 import json
 import os
+import re
 import sqlite3
 from pathlib import Path
 
@@ -119,8 +120,8 @@ tab1, tab2, tab3, tab4 = st.tabs(["🔮 Pronóstico", "📊 Evaluación del mode
 
 # ---------- pestaña 1: pronóstico ----------
 with tab1:
-    st.session_state.setdefault("inicio", pd.Timestamp("2011-11-27"))
-    st.session_state.setdefault("dia", pd.Timestamp("2011-11-22"))
+    st.session_state.setdefault("inicio", pd.Timestamp("2011-11-20"))
+    st.session_state.setdefault("dia", pd.Timestamp("2011-11-21"))
     izq, der = st.columns([1, 2.3], gap="large")
 
     with izq:
@@ -180,6 +181,31 @@ with tab1:
         c2.metric("Se vendió", libras(total_r))
         c3.metric("La red se quedó corta" if dif < 0 else "La red se pasó", f"{abs(dif):.0f}%")
 
+        # lectura ejecutiva: qué habría pasado si se planeaba con este número, y contra la regla simple
+        if horizonte == "Semana":
+            regla = diaria[(diaria["fecha"] >= inicio - pd.Timedelta(days=7)) & (diaria["fecha"] < inicio)]["ventas"].sum()
+            regla_txt = "repetir la semana anterior"
+        else:
+            previo = diaria.loc[diaria["fecha"] == inicio - pd.Timedelta(days=7), "ventas"]
+            regla = float(previo.iloc[0]) if len(previo) else np.nan
+            regla_txt = "repetir el mismo día de la semana pasada"
+        brecha = total_p - total_r
+        if brecha >= 0:
+            efecto = (f"Si se compraba inventario y se programaba personal con este número, se planeaba para **{libras(brecha)} más** de lo que se vendió: "
+                      "sobra producto en bodega y horas de trabajo. No es dinero perdido, es costo de tener de más.")
+        else:
+            efecto = (f"Si se planeaba con este número, se preparaba para **{libras(-brecha)} menos** de lo que se vendió: "
+                      "riesgo de agotados y de perder parte de esa venta.")
+        if np.isnan(regla):
+            comparacion = ""
+        else:
+            dif_regla = 100 * (regla - total_r) / total_r
+            gana = abs(dif) < abs(dif_regla)
+            comparacion = (f" La regla de {regla_txt} habría dicho **{libras(regla)}** ({dif_regla:+.0f}%). "
+                           + ("**En este caso la red estuvo más cerca.**" if gana else "**En este caso la regla simple estuvo más cerca:** pasa en algunos periodos, la red gana en el promedio."))
+        st.markdown(f"<div style='border-left:5px solid {AZUL};padding:10px 16px;border-radius:6px;background:rgba(59,125,216,.08);margin:4px 0 8px'>"
+                    f"<b>Lectura ejecutiva.</b> {re.sub(r'[*][*](.+?)[*][*]', r'<b>\1</b>', efecto + comparacion)}</div>", unsafe_allow_html=True)
+
         # gráfico: diario para una semana, semanal para mes o trimestre
         if True:
             antes = hist.tail(18 if horizonte == "Semana" else 24)[["fecha", "ventas"]]
@@ -204,9 +230,9 @@ with tab1:
             alt.Chart(ultimos[ultimos["dy"] == d]).mark_text(align="left", dx=10, dy=d, fontSize=15, fontWeight="bold").encode(
                 x="fecha:T", y="mil:Q", text="serie:N", color=alt.Color("serie:N", scale=escala, legend=None))
             for d in (-10, 10)])
-        sombra = alt.Chart(pd.DataFrame({"a": [inicio - pd.Timedelta(hours=12)], "b": [g_real["fecha"].max() + pd.Timedelta(hours=12)]})).mark_rect(opacity=0.08, color=AZUL).encode(x="a:T", x2="b:T")
-        rot = alt.Chart(pd.DataFrame({"a": [inicio], "t": ["Periodo pronosticado"]})).mark_text(align="left", dx=4, dy=-8, fontSize=12, opacity=0.7).encode(
-            x="a:T", y=alt.value(12), text="t:N")
+        sombra = alt.Chart(pd.DataFrame({"a": [inicio - pd.Timedelta(hours=14)], "b": [g_real["fecha"].max() + pd.Timedelta(hours=14)]})).mark_rect(opacity=0.15, color=AZUL).encode(x="a:T", x2="b:T")
+        rot = alt.Chart(pd.DataFrame({"a": [inicio - pd.Timedelta(hours=14)], "t": ["Pronóstico ▸"]})).mark_text(align="right", dx=-6, fontSize=13, fontWeight="bold", color=AZUL).encode(
+            x="a:T", y=alt.value(14), text="t:N")
         st.altair_chart((sombra + lineas + etiquetas_g + rot).properties(height=360, padding={"right": 90}), width="stretch")
 
         if horizonte == "Semana":
