@@ -17,7 +17,7 @@ BASE = Path(__file__).parent
 AZUL, GRIS, GRIS_OSC = "#3b7dd8", "#9aa3ad", "#6b737c"
 DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie"]          # la tienda no vende los sábados
 MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
-HORIZONTES = {"Semana": 1, "Mes": 4, "Trimestre": 13}
+HORIZONTES = ["Día", "Semana"]
 ETIQ_FECHA = "date(datum.value) + ' ' + ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][month(datum.value)]"
 
 st.set_page_config(page_title="Pronóstico de ventas con LSTM", page_icon="📈", layout="wide")
@@ -89,16 +89,16 @@ primer_inicio = domingo_de(diaria["fecha"].iloc[cfg["ventana"]]) + pd.Timedelta(
 base_mae = min(v["MAE (£)"] for k, v in m.items() if k not in ("LSTM", "GRU"))
 
 
-def inicio_valido(inicio, semanas):
-    fin = inicio + pd.Timedelta(weeks=semanas) - pd.Timedelta(days=1)
-    return primer_inicio <= inicio and fin <= ultimo_dato + pd.Timedelta(days=1)
+fechas_venta = set(diaria["fecha"])
+primer_dia = diaria["fecha"].iloc[cfg["ventana"]]
 
 
-def ultimo_inicio_valido(semanas):
-    s = domingo_de(ultimo_dato)
-    while not inicio_valido(s, semanas):
-        s -= pd.Timedelta(weeks=1)
-    return s
+def semana_valida(s):
+    return primer_inicio <= s and s + pd.Timedelta(days=6) <= ultimo_dato + pd.Timedelta(days=1)
+
+
+def dia_valido(f):
+    return f in fechas_venta and f >= primer_dia
 
 
 # ---------- encabezado ----------
@@ -120,23 +120,25 @@ tab1, tab2, tab3, tab4 = st.tabs(["🔮 Pronóstico", "📊 Evaluación del mode
 # ---------- pestaña 1: pronóstico ----------
 with tab1:
     st.session_state.setdefault("inicio", pd.Timestamp("2011-11-27"))
+    st.session_state.setdefault("dia", pd.Timestamp("2011-11-22"))
     izq, der = st.columns([1, 2.3], gap="large")
 
     with izq:
-        st.markdown("#### ¿Qué quieres planear?")
-        horizonte = st.segmented_control("Horizonte", list(HORIZONTES), default="Semana", key="horizonte", label_visibility="collapsed") or "Semana"
-        semanas = HORIZONTES[horizonte]
-        if not inicio_valido(st.session_state["inicio"], semanas):
-            st.session_state["inicio"] = ultimo_inicio_valido(semanas)
-            st.session_state.pop("mes", None)
-        inicio = st.session_state["inicio"]
-        fin = inicio + pd.Timedelta(weeks=semanas) - pd.Timedelta(days=1)
+        st.markdown("#### ¿Qué quieres pronosticar?")
+        horizonte = st.segmented_control("Horizonte", HORIZONTES, default="Semana", key="horizonte", label_visibility="collapsed") or "Semana"
+        if horizonte == "Semana":
+            inicio = st.session_state["inicio"]
+            fin = inicio + pd.Timedelta(days=6)
+            ancla = inicio
+        else:
+            inicio = fin = st.session_state["dia"]
+            ancla = inicio
 
-        st.markdown("#### ¿Desde qué semana?")
+        st.markdown("#### " + ("¿Qué semana?" if horizonte == "Semana" else "¿Qué día?"))
         meses_disp = pd.period_range(primer_inicio, ultimo_dato, freq="M")
         etiquetas = [f"{MESES[p.month - 1].capitalize()} {p.year}" for p in meses_disp]
         if st.session_state.get("mes") not in etiquetas:
-            st.session_state["mes"] = etiquetas[list(meses_disp).index(pd.Period(inicio, "M"))]
+            st.session_state["mes"] = etiquetas[list(meses_disp).index(pd.Period(ancla, "M"))]
         mes_sel = st.selectbox("Mes", etiquetas, key="mes", label_visibility="collapsed")
         periodo = meses_disp[etiquetas.index(mes_sel)]
 
@@ -145,16 +147,20 @@ with tab1:
             c.markdown(f"<div style='text-align:center;font-size:13px;opacity:.7'>{dname}</div>", unsafe_allow_html=True)
         s = domingo_de(periodo.start_time)
         while s <= periodo.end_time:
-            elegida = inicio <= s <= fin
-            ok = inicio_valido(s, semanas) or elegida
             fila = st.columns(6)
             for j, c in enumerate(fila):
                 dia = s + pd.Timedelta(days=j)
                 etiqueta = f"{dia.day}" if dia.month == periodo.month else f"·{dia.day}·"
-                c.button(etiqueta, key=f"d{dia:%Y%m%d}", disabled=not ok, type="primary" if elegida else "secondary", width="stretch",
-                         on_click=lambda s=s: st.session_state.update(inicio=s))
+                if horizonte == "Semana":
+                    elegido, ok = inicio <= dia <= fin, semana_valida(s)
+                    accion = lambda s=s: st.session_state.update(inicio=s)
+                else:
+                    elegido, ok = dia == inicio, dia_valido(dia)
+                    accion = lambda dia=dia: st.session_state.update(dia=dia)
+                c.button(etiqueta, key=f"d{dia:%Y%m%d}", disabled=not (ok or elegido), type="primary" if elegido else "secondary",
+                         width="stretch", on_click=accion)
             s += pd.Timedelta(weeks=1)
-        st.caption("Toca cualquier día para elegir su semana. Las semanas grises no tienen datos suficientes para ese horizonte.")
+        st.caption("Toca un día para elegir su semana." if horizonte == "Semana" else "Toca el día a pronosticar. Los días grises no tuvieron venta (festivos) o les falta historia.")
 
     hist = diaria[diaria["fecha"] < inicio]
     periodo_df = diaria[(diaria["fecha"] >= inicio) & (diaria["fecha"] <= fin)].copy()
@@ -164,24 +170,22 @@ with tab1:
     dif = 100 * (total_p - total_r) / total_r
 
     with der:
-        texto_h = {"Semana": "la semana", "Mes": "el mes", "Trimestre": "el trimestre"}[horizonte]
-        st.markdown(f"#### Pronóstico para {texto_h} del {corta(inicio)} al {corta(fin - pd.Timedelta(days=1))} de {fin.year}")
+        if horizonte == "Semana":
+            st.markdown(f"#### Pronóstico para la semana del {corta(inicio)} al {corta(fin - pd.Timedelta(days=1))} de {fin.year}")
+        else:
+            dias_largos = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+            st.markdown(f"#### Pronóstico para el {dias_largos[inicio.dayofweek]} {corta(inicio)} de {inicio.year}")
         c1, c2, c3 = st.columns(3)
         c1.metric("La red pronosticó", libras(total_p))
         c2.metric("Se vendió", libras(total_r))
         c3.metric("La red se quedó corta" if dif < 0 else "La red se pasó", f"{abs(dif):.0f}%")
 
         # gráfico: diario para una semana, semanal para mes o trimestre
-        if horizonte == "Semana":
-            antes = hist.tail(18)[["fecha", "ventas"]]
+        if True:
+            antes = hist.tail(18 if horizonte == "Semana" else 24)[["fecha", "ventas"]]
             g_real = pd.concat([antes, periodo_df[["fecha", "ventas"]]])
             g_pron = periodo_df[["fecha", "lstm"]].rename(columns={"lstm": "ventas"})
             eje_x = alt.X("fecha:T", title=None, axis=alt.Axis(labelExpr=ETIQ_FECHA, labelAngle=0, tickCount=8))
-        else:
-            sem = lambda df, col: df.assign(semana=df["fecha"].apply(domingo_de)).groupby("semana", as_index=False)[col].sum().rename(columns={"semana": "fecha", col: "ventas"})
-            g_real = pd.concat([sem(hist[hist["fecha"] >= inicio - pd.Timedelta(weeks=10)], "ventas"), sem(periodo_df, "ventas")])
-            g_pron = sem(periodo_df, "lstm")
-            eje_x = alt.X("fecha:T", title="Semana que inicia", axis=alt.Axis(labelExpr=ETIQ_FECHA, labelAngle=0))
         g_real["serie"], g_pron["serie"] = "Venta real", "Red LSTM"
         y_max = max(g_real["ventas"].max(), g_pron["ventas"].max()) * 1.15 / 1000
         datos_g = pd.concat([g_real, g_pron]).assign(mil=lambda d: d["ventas"] / 1000)
@@ -205,21 +209,22 @@ with tab1:
             x="a:T", y=alt.value(12), text="t:N")
         st.altair_chart((sombra + lineas + etiquetas_g + rot).properties(height=360, padding={"right": 90}), width="stretch")
 
-        ref = hz.get(horizonte)
-        if ref:
-            st.caption(f"Referencia ({ref['n']} periodos de prueba): error típico de la red al planear {texto_h}: **{ref['lstm']:.0f}%** · repitiendo {texto_h} anterior: **{ref['anterior']:.0f}%**.")
-        if horizonte == "Trimestre":
-            st.warning("Horizonte largo: la red se entrenó para pronosticar el día siguiente y en un trimestre acumula error. En la temporada navideña se quedó corta entre 25% y 40%.")
+        if horizonte == "Semana":
+            st.caption(f"Referencia ({hz['Semana']['n']} semanas de prueba): error típico de la red al pronosticar una semana **{hz['Semana']['lstm']:.0f}%** · repitiendo la semana anterior **{hz['Semana']['anterior']:.0f}%**.")
+        else:
+            st.caption(f"Referencia (60 días de prueba): la red se equivoca en promedio **{libras_mil(m['LSTM']['MAE (£)'])}** por día ({m['LSTM']['MAPE (%)']:.0f}% de la venta del día) · repitiendo el mismo día de la semana pasada **{libras_mil(m['Ingenuo estacional (semana pasada)']['MAE (£)'])}**.")
         if inicio < inicio_prueba:
-            st.info("La red vio estas semanas al entrenar, así que la comparación es optimista. El periodo de prueba empieza el 2 de octubre de 2011.")
+            st.info("La red vio este periodo al entrenar, así que la comparación es optimista. El periodo de prueba empieza el 2 de octubre de 2011.")
 
-        with st.expander("Ver detalle por semana"):
-            det = periodo_df.assign(Semana=periodo_df["fecha"].apply(domingo_de)).groupby("Semana", as_index=False)[["lstm", "ventas"]].sum()
-            det["Diferencia"] = (100 * (det["lstm"] - det["ventas"]) / det["ventas"]).map(lambda v: f"{v:+.0f}%")
-            det["Semana"] = det["Semana"].map(lambda f: f"{corta(f)} – {corta(f + pd.Timedelta(days=5))}")
+        if horizonte == "Semana":
+          with st.expander("Ver detalle por día"):
+            det = periodo_df.copy()
+            dias_largos = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+            det["Día"] = det["fecha"].map(lambda f: f"{dias_largos[f.dayofweek]} {corta(f)}")
             det["Red LSTM"] = det["lstm"].map(libras)
             det["Venta real"] = det["ventas"].map(libras)
-            st.dataframe(det[["Semana", "Red LSTM", "Venta real", "Diferencia"]], hide_index=True, width="stretch")
+            det["Diferencia"] = (100 * (det["lstm"] - det["ventas"]) / det["ventas"]).map(lambda v: f"{v:+.0f}%")
+            st.dataframe(det[["Día", "Red LSTM", "Venta real", "Diferencia"]], hide_index=True, width="stretch")
 
 # ---------- pestaña 2: evaluación ----------
 with tab2:
@@ -344,7 +349,7 @@ with tab4:
     st.markdown(f"""
 1. **SQL (SQLite):** 541.909 líneas de factura → limpieza (sin cancelaciones ni precios en cero) → **venta diaria** (305 días).
 2. **Preparación:** a cada ventana de {cfg['ventana']} días se le resta su promedio. La red aprende la *forma* de las ventas (el ritmo de la semana) y no el nivel, por eso se adapta a la temporada navideña.
-3. **Red LSTM:** lee {cfg['ventana']} días en orden y pronostica el día siguiente. Para una semana o un mes, cada pronóstico entra a la ventana del siguiente día.
+3. **Red LSTM:** lee {cfg['ventana']} días en orden y pronostica el día siguiente. Para una semana, cada pronóstico entra a la ventana del día siguiente.
 4. **Evaluación:** octubre a diciembre de 2011, periodo que la red nunca vio, contra los métodos simples de un planificador.
 
 | Capa | Configuración |
@@ -357,6 +362,6 @@ with tab4:
 
 Adam (0,001) · pérdida Huber · parada temprana · {cfg['epocas']} épocas. Se comparó con una GRU y con un MLP.
 
-**Límite:** la red sirve para el corto plazo (días y semanas). En un mes empata con repetir el mes anterior. Para planear meses o trimestres haría falta entrenar con datos mensuales de varios años.
+**Límite:** la red sirve para el corto plazo (días y semanas). Se probó a un mes y empató con repetir el mes anterior, por eso la app no lo ofrece. Para planear meses haría falta entrenar con datos mensuales de varios años.
 """)
     st.caption("Código y notebook: github.com/gigasanti/aca1-grupo1-cun (carpeta aa2/)")
