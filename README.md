@@ -7,7 +7,8 @@ Integrantes: Mayra Fernanda Bernate Bustamante · Angela Consuelo Castillo Rodr�
 | Carpeta | Asignatura | Contenido |
 |---|---|---|
 | [`nube/`](nube) | Computación en la Nube para Sistemas Inteligentes | Pipeline RAG: ingesta, chunking, embeddings (`multilingual-e5-small`) y búsqueda semántica en **Qdrant Cloud** |
-| [`aa/`](aa) | Aprendizaje Automático | Segmentación de clientes con **RFM + K-Means** y app interactiva en **Streamlit** |
+| [`aa/`](aa) | Aprendizaje Automático (ACA 1) | Segmentación de clientes con **RFM + K-Means** y app interactiva en **Streamlit** |
+| [`aa2/`](aa2) | Aprendizaje Automático (ACA 2) | Pronóstico de ventas diarias con una red **LSTM**, base **SQLite** y app en **Streamlit** |
 
 ## Computación en la Nube (`nube/`)
 
@@ -29,6 +30,10 @@ streamlit run app.py
 ```
 
 App publicada: https://aca1-grupo1-cun-jqvtqkdarfsifdxeqfwhjv.streamlit.app
+
+## Aprendizaje Automático · ACA 2 (`aa2/`)
+
+Ver [`aa2/README.md`](aa2/README.md). App publicada: https://aca2-grupo1-lstm.streamlit.app
 
 ## Videos de sustentación
 
