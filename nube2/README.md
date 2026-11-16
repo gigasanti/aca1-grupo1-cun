@@ -3,7 +3,7 @@
 Asistente de atención al cliente que responde dudas de **garantías, devoluciones, envíos, derechos del consumidor y productos del catálogo** usando solo los documentos indexados en el ACA 1, y cita la fuente de cada afirmación.
 
 - **App publicada:** https://aca2-grupo1-rag.streamlit.app
-- **Video de sustentación:** VIDEO_URL
+- **Video de sustentación:** https://youtu.be/zWw0WFuXG2k
 - Docente: Hamilton Rivera Flor · Integrantes: Mayra Fernanda Bernate Bustamante · Angela Consuelo Castillo Rodríguez · Karen Viviana Ospina Lesmes · Jair Vargas · Santiago Bahamón Escobar
 
 ## Arquitectura

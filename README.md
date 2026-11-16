@@ -42,6 +42,6 @@ Ver [`nube2/README.md`](nube2/README.md). App publicada: https://aca2-grupo1-rag
 
 ## Videos de sustentación
 
-- Computación en la Nube: https://youtu.be/ST8GRobAE3E
+- Computación en la Nube: https://youtu.be/ST8GRobAE3E (ACA 1) · https://youtu.be/zWw0WFuXG2k (ACA 2)
 - Aprendizaje Automático (ACA 1): https://youtu.be/o83qOFIDKzw
 - Aprendizaje Automático (ACA 2): https://youtu.be/1yE-dzI6u2M
