@@ -53,7 +53,7 @@ Reglas obligatorias:
 3. Si las fuentes no contienen la respuesta, responde exactamente: "{NOT_FOUND}" y, si aplica, sugiere en una frase qué tipo de pregunta sí puedes responder (garantías, devoluciones, envíos, derechos del consumidor, productos del catálogo o segmentación de clientes). No añadas citas en ese caso.
 4. Si las fuentes solo cubren una parte de la pregunta, responde esa parte con citas y aclara qué parte no está en los documentos.
 5. Si la política de la tienda y la Ley 1480 dicen cosas complementarias, menciona ambas con su cita.
-6. Sé conciso: entre 2 y 6 frases, o una lista corta si la pregunta pide varios elementos. Las cifras de dinero de las fichas de producto están en libras esterlinas (£)."""
+6. Responde como en un chat: una o dos frases cortas y directas, con el dato que el cliente necesita. Usa una lista corta solo si pide varios elementos. Las cifras de dinero de las fichas de producto están en libras esterlinas (£)."""
 
 
 # ---------------------------------------------------------------------------
@@ -138,19 +138,22 @@ def llm(prompt: str, system: str = SYSTEM_PROMPT, temperature: float = TEMPERATU
     """Gemini call with retry; on quota errors (429) it falls back to the lite model."""
     global last_model_used
     last = None
-    for model in (LLM_MODEL, FALLBACK_MODEL):
-        for attempt in range(retries):
-            try:
-                resp = gemini().models.generate_content(
-                    model=model, contents=prompt,
-                    config=generation_config(system, model, temperature, max_tokens))
-                last_model_used = model
-                return (resp.text or "").strip()
-            except Exception as exc:  # noqa: BLE001 - surface the last error after retries
-                last = exc
-                if "429" in str(exc) or "RESOURCE_EXHAUSTED" in str(exc):
-                    break  # quota: go straight to the fallback model
-                time.sleep(1.5 * (attempt + 1))
+    for round_ in range(2):  # second round only if both models hit the per-minute quota
+        for model in (LLM_MODEL, FALLBACK_MODEL):
+            for attempt in range(retries):
+                try:
+                    resp = gemini().models.generate_content(
+                        model=model, contents=prompt,
+                        config=generation_config(system, model, temperature, max_tokens))
+                    last_model_used = model
+                    return (resp.text or "").strip()
+                except Exception as exc:  # noqa: BLE001 - surface the last error after retries
+                    last = exc
+                    if "429" in str(exc) or "RESOURCE_EXHAUSTED" in str(exc):
+                        break  # quota: go straight to the fallback model
+                    time.sleep(1.5 * (attempt + 1))
+        if round_ == 0:
+            time.sleep(12)  # free tier asks to retry in ~10 s
     raise RuntimeError(f"Error al llamar a Gemini: {last}")
 
 
@@ -208,9 +211,10 @@ def build_prompt(question: str, sources: list[Source], history: list[dict] | Non
 
 REWRITE_SYSTEM = ("Reescribes la última pregunta de un cliente como una consulta de búsqueda autónoma y completa en español. "
                   "Usa la conversación previa solo para resolver referencias como 'eso', 'y si…', 'ese producto'. "
-                  "Usa el vocabulario formal de una política comercial y del Estatuto del Consumidor cuando aplique "
-                  "(por ejemplo: derecho de retracto, garantía legal, devolución, producto dañado o incompleto, "
-                  "reversión del pago, envío internacional, aranceles, ficha de producto). "
+                  "Usa términos de la política de devoluciones de la tienda cuando aplique "
+                  "(por ejemplo: producto llega dañado o incompleto, derecho de retracto, devolución, garantía, "
+                  "reversión del pago, envío internacional, aranceles, precio del producto). "
+                  "Máximo 15 palabras. No menciones leyes ni artículos que el cliente no nombró. "
                   "No respondas la pregunta. Devuelve solo la consulta, sin explicaciones.")
 
 

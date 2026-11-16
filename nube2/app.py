@@ -28,11 +28,9 @@ ACCENT = "#2563eb"
 MUTED = "#94a3b8"
 
 EXAMPLES = [
-    "Mi pedido llegó dañado. ¿Qué debo hacer y en cuánto tiempo me responden?",
-    "Compré por internet y me arrepentí. ¿Cuántos días tengo y quién paga el envío de la devolución?",
-    "¿Y eso también aplica si el producto es personalizado?",
-    "¿Cuál es el precio del portavelas blanco de corazón para colgar y en qué país se vende más?",
-    "¿Cuánto cuesta un iPhone 15?",
+    "me llego el pedido roto q hago",
+    "compre por internet y ya no lo quiero, cuantos dias tengo pa devolverlo",
+    "cuanto vale el portavelas blanco de corazon",
 ]
 
 

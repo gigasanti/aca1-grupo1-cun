@@ -122,6 +122,7 @@ C.append(md("""# PASO 3 · Canalización RAG y *prompt engineering*
 El *system prompt* fija las reglas que reducen alucinaciones:
 1. responder **solo** con las fuentes entregadas;
 2. citar cada afirmación con `[n]`;
+6. responder como en un chat: una o dos frases cortas;
 3. si no está en las fuentes, decir exactamente *"No encuentro esa información en los documentos indexados."*;
 4. si solo hay respuesta parcial, decir qué parte falta;
 5. mencionar política y ley cuando ambas aplican.
@@ -132,7 +133,7 @@ print("\\n" + "=" * 100 + "\\nEjemplo de prompt de usuario (recortado):\\n")
 src, _, _ = rag.retrieve("¿Quién paga los aranceles de un envío internacional?", k=3)
 print(rag.build_prompt("¿Quién paga los aranceles de un envío internacional?", src)[:1500], "…")"""))
 
-C.append(md("## Pruebas de diálogo con citas explícitas\nConversación de varios turnos (la misma de la demostración en video). La tercera pregunta depende del historial."))
+C.append(md("## Pruebas de diálogo con citas explícitas\nConversación de varios turnos escrita como escribe un cliente real (sin tildes ni signos), la misma de la demostración en video. La tercera pregunta depende del historial."))
 C.append(code("""def mostrar(a):
     print("CLIENTE:", a.question)
     if a.search_query != a.question:
@@ -144,15 +145,15 @@ C.append(code("""def mostrar(a):
     print(f"   ⏱ {a.ms_total / 1000:.1f} s · modelo {rag.last_model_used}\\n" + "-" * 100)
 
 historial = []
-for q in ["Mi pedido llegó dañado. ¿Qué debo hacer y en cuánto tiempo me responden?",
-          "Compré por internet y me arrepentí. ¿Cuántos días tengo y quién paga el envío de la devolución?",
-          "¿Y eso también aplica si el producto es personalizado?",
-          "¿Cuál es el precio del portavelas blanco de corazón para colgar y en qué país se vende más?",
-          "¿Cuánto cuesta un iPhone 15?"]:
+for q in ["me llego el pedido roto q hago",
+          "compre por internet y ya no lo quiero, cuantos dias tengo pa devolverlo",
+          "y si es personalizado?",
+          "cuanto vale el portavelas blanco de corazon",
+          "tienen iphone 15?"]:
     a = rag.ask(q, history=historial)
     mostrar(a)
     historial += [{"role": "user", "content": q}, {"role": "assistant", "content": a.text}]
-    time.sleep(3)  # respeta el límite de solicitudes por minuto de la capa gratuita"""))
+    time.sleep(8)  # respeta el límite de solicitudes por minuto de la capa gratuita"""))
 
 C.append(md("""# PASO 5 · Validación integral
 
@@ -198,7 +199,7 @@ for alcance, pregunta, esperado, claves in PRUEBAS:
         "ms_total": round(a.ms_total), "respuesta": a.text,
     })
     print(f"{'✔' if (filas[-1]['fiel'] or filas[-1]['se_abstiene']) else '✘'} {pregunta[:70]:70s} {a.ms_total / 1000:5.1f} s")
-    time.sleep(3)
+    time.sleep(8)
 
 val = pd.DataFrame(filas)
 val.to_csv("resultados_validacion.csv", index=False, encoding="utf-8")
