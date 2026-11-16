@@ -38,7 +38,7 @@ Ver [`aa2/README.md`](aa2/README.md). App publicada: https://aca2-grupo1-lstm.st
 
 ## Computación en la Nube · ACA 2 (`nube2/`)
 
-Ver [`nube2/README.md`](nube2/README.md).
+Ver [`nube2/README.md`](nube2/README.md). App publicada: https://aca2-grupo1-rag.streamlit.app
 
 ## Videos de sustentación
 
