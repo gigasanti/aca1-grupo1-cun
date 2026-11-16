@@ -249,7 +249,7 @@ with tab_val:
                   help="La respuesta contiene el dato clave esperado y cada afirmación lleva cita [n].")
         v3.metric("Se abstiene fuera del tema", f"{int(fuera['se_abstiene'].sum())} de {len(fuera)}",
                   help="Preguntas que los documentos no cubren: el asistente dice que no tiene la información en vez de inventar.")
-        v4.metric("Tiempo típico de respuesta", f"{val['ms_total'].median() / 1000:.1f} s",
+        v4.metric("Tiempo típico de respuesta", f"{val['ms_total'].median() / 1000:.1f} s".replace(".", ","),
                   help="Mediana de extremo a extremo: búsqueda en Qdrant + redacción con Gemini.")
 
         ok_total = int(dentro["fiel"].sum()) + int(fuera["se_abstiene"].sum())
@@ -260,8 +260,10 @@ with tab_val:
 
         lat = val.assign(busqueda_ms=val["ms_embedding"] + val["ms_qdrant"])
         l1, l2 = st.columns(2)
-        l1.metric("Búsqueda en Qdrant (mediana)", f"{lat['busqueda_ms'].median():.0f} ms")
-        l2.metric("Redacción con Gemini (mediana)", f"{lat['ms_llm'].median() / 1000:.1f} s")
+        l1.metric("Búsqueda en Qdrant (mediana)", f"{lat['busqueda_ms'].median() / 1000:.1f} s".replace(".", ","),
+                  help="Convertir la pregunta en vector y consultar Qdrant Cloud.")
+        l2.metric("Redacción con Gemini (mediana)", f"{lat['ms_llm'].median() / 1000:.1f} s".replace(".", ","),
+                  help="Reescritura de la consulta + redacción de la respuesta con citas.")
 
         with st.expander("Detalle por pregunta"):
             cols = ["alcance", "pregunta", "documento_esperado", "fuente_correcta", "fiel", "se_abstiene",
