@@ -10,7 +10,7 @@ C.append(md("""# ACA 2 · Computación en la Nube para Sistemas Inteligentes
 ### Pilar 3: Ventas · Asistente de atención al cliente, postventa y e-commerce
 
 **Corporación Unificada Nacional de Educación Superior (CUN)** · Especialización en Inteligencia Artificial
-**Docente:** Dr. Hamilton Rivera Flor · **Grupo 1**
+**Docente:** Hamilton Rivera Flor · **Grupo 1**
 
 **Integrantes:** Mayra Fernanda Bernate Bustamante · Angela Consuelo Castillo Rodríguez · Karen Viviana Ospina Lesmes · Jair Vargas · Santiago Bahamón Escobar
 
