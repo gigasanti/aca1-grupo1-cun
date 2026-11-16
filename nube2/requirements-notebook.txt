@@ -1,0 +1,9 @@
+# Extra packages for the notebook and for rebuilding the collection (indexar.py)
+-r requirements.txt
+matplotlib
+pymupdf
+langchain-text-splitters
+requests
+nbformat
+nbconvert
+ipykernel
