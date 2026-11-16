@@ -53,7 +53,8 @@ Reglas obligatorias:
 3. Si las fuentes no contienen la respuesta, responde exactamente: "{NOT_FOUND}" y, si aplica, sugiere en una frase qué tipo de pregunta sí puedes responder (garantías, devoluciones, envíos, derechos del consumidor, productos del catálogo o segmentación de clientes). No añadas citas en ese caso.
 4. Si las fuentes solo cubren una parte de la pregunta, responde esa parte con citas y aclara qué parte no está en los documentos.
 5. Si la política de la tienda y la Ley 1480 dicen cosas complementarias, menciona ambas con su cita.
-6. Responde como en un chat: una o dos frases cortas y directas, con el dato que el cliente necesita. Usa una lista corta solo si pide varios elementos. Las cifras de dinero de las fichas de producto están en libras esterlinas (£)."""
+6. Explica qué debe hacer el cliente con el contenido de las fuentes. No le hables de "numerales" ni de números de artículo: si una fuente remite a otra que también te entregaron, usa el contenido de esa otra.
+7. Responde como en un chat: una o dos frases cortas y directas, con el dato que el cliente necesita. Usa una lista corta solo si pide varios elementos. Las cifras de dinero de las fichas de producto están en libras esterlinas (£)."""
 
 
 # ---------------------------------------------------------------------------
@@ -231,11 +232,46 @@ def rewrite_question(question: str, history: list[dict]) -> str:
     return out.strip().strip('"') or question
 
 
+@lru_cache(maxsize=1)
+def policy_by_numeral() -> dict:
+    """Policy chunks indexed by numeral ('3.4' -> chunk payload), to follow cross-references."""
+    from qdrant_client.models import FieldCondition, Filter, MatchValue
+    points, _ = qdrant().scroll(COLLECTION, limit=200, with_payload=True, with_vectors=False,
+                                scroll_filter=Filter(must=[FieldCondition(
+                                    key="tipo_documento", match=MatchValue(value="politica_comercial"))]))
+    out = {}
+    for p in points:
+        m = re.search(r"(\d+\.\d+)$", p.payload.get("seccion", ""))
+        if m:
+            out[m.group(1)] = dict(p.payload)
+    return out
+
+
+def follow_references(sources: list[Source], max_extra: int = 2) -> list[Source]:
+    """If a policy chunk says 'según el numeral 3.4', add numeral 3.4 so the LLM can answer with its content."""
+    present = {s.payload.get("seccion", "") for s in sources}
+    extra = []
+    for s in sources:
+        if s.doc_type != "politica_comercial":
+            continue
+        for num in re.findall(r"numeral (\d+\.\d+)", s.text):
+            p = policy_by_numeral().get(num)
+            if p and p.get("seccion") not in present and len(extra) < max_extra:
+                present.add(p.get("seccion"))
+                extra.append(Source(n=0, score=s.score, doc_type="politica_comercial", reference=reference(p),
+                                    source=p.get("fuente", ""), text=p.get("texto", ""), payload=p))
+    out = sources + extra
+    for i, s in enumerate(out, 1):
+        s.n = i
+    return out
+
+
 def retrieve_multi(question: str, search_query: str, k: int, doc_types=None):
-    """Searches with the original question and the rewritten query, keeps the best score per chunk."""
+    """Searches with the original question and the rewritten query, keeps the best score per chunk,
+    then adds policy numerals that the retrieved chunks refer to."""
     a, e1, q1 = retrieve(question, k, doc_types)
     if search_query == question:
-        return a, e1, q1
+        return follow_references(a), e1, q1
     b, e2, q2 = retrieve(search_query, k, doc_types)
     best = {}
     for s in a + b:
@@ -243,9 +279,7 @@ def retrieve_multi(question: str, search_query: str, k: int, doc_types=None):
         if key not in best or s.score > best[key].score:
             best[key] = s
     merged = sorted(best.values(), key=lambda s: s.score, reverse=True)[:k]
-    for i, s in enumerate(merged, 1):
-        s.n = i
-    return merged, e1 + e2, q1 + q2
+    return follow_references(merged), e1 + e2, q1 + q2
 
 
 # ---------------------------------------------------------------------------
