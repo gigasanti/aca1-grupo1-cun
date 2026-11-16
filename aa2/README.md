@@ -31,4 +31,6 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-En Streamlit Community Cloud: archivo principal `aa2/app/app.py`.
+App publicada: https://aca2-grupo1-lstm.streamlit.app
+
+Video de sustentación: https://youtu.be/1yE-dzI6u2M
